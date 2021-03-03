@@ -1,0 +1,44 @@
+version: "1"
+# Defines the restart policy for the docker containers.
+ARG RESTART_POLICY=always
+ENV RESTART_POLICY=${var}
+
+services:
+  sintef_semantic:
+    build:
+      context: .
+      target: production
+    #image:
+    domainname: sintef
+    container_name: semantic
+    restart: "${RESTART_POLICY}"
+    ports:
+    - ${HTTPS_SERVER_PORT}:${HTTPS_SERVER_PORT}
+    env_file:
+      - .env
+  # Graph DB image
+  graphdb:
+    container_name: graphdb
+    build:
+      context: ./free-edition
+      dockerfile: src/Dockerfile
+      args:
+        version: 9.6.0
+    restart: "${RESTART_POLICY}" #unless-stopped
+    environment:
+      GDB_JAVA_OPTS: >-
+        -Xmx2g -Xms2g
+        -Dgraphdb.home=/opt/graphdb/home
+        -Dgraphdb.workbench.importDirectory=/opt/graphdb/home/graphdb-import
+        -Dgraphdb.workbench.cors.enable=true
+        -Denable-context-index=true
+        -Dentity-pool-implementation=transactional
+        -Dhealth.max.query.time.seconds=60
+        -Dgraphdb.append.request.id.headers=true
+        -Dreuse.vars.in.subselects=true
+    ports:
+      - "${ONTOTEXT_ENTRY_PORT}":"${ONTOTEXT_ENTRY_PORT}"
+    volumes:
+      - ./graphdb-data:/opt/graphdb/home
+
+
