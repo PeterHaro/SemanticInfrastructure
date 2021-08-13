@@ -13,7 +13,7 @@ public class Location {
 		this.latitude = builder.latitude;
 		
 	}
-	
+		
 	public static class LocationBuilder {
 		
 		private String type;
