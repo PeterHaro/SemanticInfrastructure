@@ -3,22 +3,19 @@ package no.sintef.datamodels.generic;
 public class Location {
 	
 	private String type;
-	private double longitude;
-	private double latitude;
+	private double[] coordinates;
 	
 	private Location (LocationBuilder builder) {
 		
 		this.type = builder.type;
-		this.longitude = builder.longitude;
-		this.latitude = builder.latitude;
+		this.coordinates = builder.coordinates;
 		
 	}
 		
 	public static class LocationBuilder {
 		
 		private String type;
-		private double longitude;
-		private double latitude;
+		private double[] coordinates;
 		
 		public LocationBuilder() {}
 
@@ -27,13 +24,8 @@ public class Location {
 			return this;
 		}
 
-		public LocationBuilder setLongitude(double longitude) {
-			this.longitude = longitude;
-			return this;
-		}
-
-		public LocationBuilder setLatitude(double latitude) {
-			this.latitude = latitude;
+		public LocationBuilder setCoordinates(double[] coordinates) {
+			this.coordinates = coordinates;
 			return this;
 		}
 		
@@ -47,14 +39,9 @@ public class Location {
 		return type;
 	}
 
-	public double getLongitude() {
-		return longitude;
+	public double[] getCoordinates() {
+		return coordinates;
 	}
 
-	public double getLatitude() {
-		return latitude;
-	}
-	
-	
 
 }

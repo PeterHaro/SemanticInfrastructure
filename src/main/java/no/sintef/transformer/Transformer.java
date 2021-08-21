@@ -1,63 +1,80 @@
 package no.sintef.transformer;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
+import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.io.Reader;
-import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.UUID;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import no.sintef.datamodels.WaterObserved;
 import no.sintef.datamodels.WaterQualityObserved;
-import no.sintef.datamodels.WeatherObserved;
 import no.sintef.datamodels.generic.Location;
 import no.sintef.input.Alert;
 import no.sintef.input.Alert.MeasurementResult;
-
-import com.google.gson.Gson;
 
 public class Transformer {
 
 	//test
 	public static void main(String[] args) throws IOException {
 
-		Set<WaterObserved> records = transformToWaterObserved("./files/EDEN.csv");
+		
+		//Testing WaterObserved
+		List<WaterObserved> records = transformToWaterObserved("./files/EDEN.csv");
 
-		System.out.println("Number of records: " + records.size());
 
+		PrintWriter writer = null;
+		File outputFile = null;
+		String output = null;
+		
+		//generate json output
 		for (WaterObserved wo : records) {
-			System.out.println("Id: " + wo.getId());
-			System.out.println("Date observed: " + wo.getDateObserved());
-			System.out.println("Flow: " + wo.getFlow());
-			System.out.println("Height: " + wo.getHeight());
-			System.out.println("Discharge amount: " + wo.getDischargeAmount());
-			System.out.println("\n");
+			String id = wo.getId();
+			outputFile = new File("./files/payloads/WaterObserved/" + id + ".json");
+			output = new GsonBuilder().create().toJson(wo);
+			
+			writer = new PrintWriter(
+					new BufferedWriter(
+							new FileWriter(outputFile)), true);
+			
+			writer.write(output);
+			writer.flush();
+			writer.close();
+			
 		}
-
+	
+		//Testing WaterQualityObserved
 		String alertFile = "./files/Alert_test.json";
 
 		WaterQualityObserved wqo = transformToWaterQualityObserved(alertFile);
 		
 		Location loc = wqo.getLocation();
-		double lat = loc.getLatitude();
-		double lon = loc.getLongitude();
+		double[] coordinates = loc.getCoordinates();
 		
 		System.out.println("Id: " + wqo.getId());
-		System.out.println("Latitude: " + lat);
-		System.out.println("Longitude: " + lon);
+		System.out.println("Latitude: " + coordinates[0]);
+		System.out.println("Longitude: " + coordinates[1]);
 		System.out.println("E.coli: " + wqo.getEcoli());
 		System.out.println("Temperature: " + wqo.getTemperature());
+		
+		
+		//Testing WeatherObserved
 
 	}
 
 
-	public static Set<WaterObserved> transformToWaterObserved (String csvInput) throws IOException {
+	public static List<WaterObserved> transformToWaterObserved (String csvInput) throws IOException {
 
-		WaterObserved wo;
-		Set<WaterObserved> waterObservedData = new HashSet<WaterObserved>();
+		//WaterObserved wo;
+		List<WaterObserved> waterObservedData = new LinkedList<WaterObserved>();
 
 		BufferedReader br = new BufferedReader(new FileReader(csvInput));
 
@@ -66,6 +83,7 @@ public class Transformer {
 
 		Location loc;	
 		String measurementType = null;
+		
 		double lat, lon, measurementValue;
 
 		while (line != null) {
@@ -74,9 +92,15 @@ public class Transformer {
 
 			lat = Double.parseDouble(params[3]);
 			lon = Double.parseDouble(params[4]);
+			
+			double[] coordinates = new double[2];
+			
+			coordinates[0] = lat;
+			coordinates[1] = lon;			
+			
 			loc = new Location.LocationBuilder()
-					.setLatitude(lat)
-					.setLongitude(lon)
+					.setType("Point")
+					.setCoordinates(coordinates)
 					.build();
 
 			measurementType = getMeasurementType(params[0]);
@@ -85,8 +109,8 @@ public class Transformer {
 
 			if (measurementType.equals("flow")) {
 
-				wo = new WaterObserved.WaterObservedBuilder()
-						.setId("someId")
+				WaterObserved wo = new WaterObserved.WaterObservedBuilder()
+						.setId(generateUUID())
 						.setType("WaterObserved")
 						.setSource("EDEN")				
 						.setDateObserved(params[2])
@@ -99,8 +123,8 @@ public class Transformer {
 
 			} else if (measurementType.equals("height")) {
 
-				wo = new WaterObserved.WaterObservedBuilder()
-						.setId("someId")
+				WaterObserved wo = new WaterObserved.WaterObservedBuilder()
+						.setId(generateUUID())
 						.setType("WaterObserved")
 						.setSource("EDEN")				
 						.setDateObserved(params[2])
@@ -114,8 +138,8 @@ public class Transformer {
 
 			} else if (measurementType.equals("dischargeAmount")){
 
-				wo = new WaterObserved.WaterObservedBuilder()
-						.setId("someId")
+				WaterObserved wo = new WaterObserved.WaterObservedBuilder()
+						.setId(generateUUID())
 						.setType("WaterObserved")
 						.setSource("EDEN")				
 						.setDateObserved(params[2])
@@ -131,29 +155,12 @@ public class Transformer {
 		}
 
 		br.close();
-
+		
 		return waterObservedData;
 
 	}
 
 
-
-	//TODO: Just mocking this, get info on how to interpret these values from SIAAP
-	private static String getMeasurementType (String tagValue) {
-
-		String measurementType = null;
-		if (tagValue.contains("_Q_")) {
-			measurementType = "flow";
-		} else if (tagValue.contains("_N_")) {
-			measurementType = "height";
-		} else if (tagValue.contains("_D_")) {
-			measurementType = "dischargeAmount";
-		}
-
-		return measurementType;
-
-
-	}
 	//TODO: Just mocking this, get info on how to interpret these values from SIAAP
 	private static double getMeasurementValue (String tagValue) {
 
@@ -176,10 +183,14 @@ public class Transformer {
 			Alert alert = gson.fromJson(reader, Alert.class);
 
 			List<MeasurementResult> mr = alert.getMeasurement_result();
+			
+			double[] coordinates = new double[2];
+			coordinates[0] = alert.getLatitude();
+			coordinates[1] = alert.getLongitude();
 
 			Location location = new Location.LocationBuilder()
-					.setLatitude(alert.getLatitude())
-					.setLongitude(alert.getLongitude())
+					.setType("Point")
+					.setCoordinates(coordinates)
 					.build();
 
 			for (MeasurementResult mres : mr) {
@@ -201,6 +212,30 @@ public class Transformer {
 		return wqo;
 
 
+	}
+	
+	//TODO: Just mocking this, get info on how to interpret these values from SIAAP
+	private static String getMeasurementType (String tagValue) {
+
+		String measurementType = null;
+		if (tagValue.contains("_Q_")) {
+			measurementType = "flow";
+		} else if (tagValue.contains("_N_")) {
+			measurementType = "height";
+		} else if (tagValue.contains("_D_")) {
+			measurementType = "dischargeAmount";
+		}
+
+		return measurementType;
+
+
+	}
+	
+	private static String generateUUID() {
+		
+		UUID id = UUID.randomUUID();
+		
+		return id.toString();
 	}
 
 

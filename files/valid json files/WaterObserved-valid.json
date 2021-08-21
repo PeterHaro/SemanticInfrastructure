@@ -1,0 +1,17 @@
+{
+  "id": "some-identifier",
+  "type": "WaterObserved",
+  "source": "URL to EDEN",
+  "dateCreated": "2000-01-01T01:01:01Z",
+  "dateObserved": "2021-01-01T01:01:01Z",
+  "location": {
+      "type": "Point",
+      "coordinates": [
+      38.84,
+      0.105
+      ]
+  },
+  "flow": 8,
+  "height": 2.4,
+  "dischargeAmount": 3
+}
