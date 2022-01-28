@@ -8,6 +8,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Reader;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
@@ -26,54 +28,27 @@ public class Transformer {
 	//test
 	public static void main(String[] args) throws IOException {
 
-		
 		//Testing WaterObserved
-		List<WaterObserved> records = transformToWaterObserved("./files/EDEN.csv");
+		String csvFile = "./files/EDEN.csv";
+		String outputFolder = "./files/payloads/WaterObserved";		
+		transformToWaterObserved(csvFile, outputFolder);
 
 
-		PrintWriter writer = null;
-		File outputFile = null;
-		String output = null;
-		
-		//generate json output
-		for (WaterObserved wo : records) {
-			String id = wo.getId();
-			outputFile = new File("./files/payloads/WaterObserved/" + id + ".json");
-			output = new GsonBuilder().create().toJson(wo);
-			
-			writer = new PrintWriter(
-					new BufferedWriter(
-							new FileWriter(outputFile)), true);
-			
-			writer.write(output);
-			writer.flush();
-			writer.close();
-			
-		}
-	
 		//Testing WaterQualityObserved
 		String alertFile = "./files/Alert_test.json";
+		outputFolder = "./files/payloads/WaterQualityObserved";		
+		String gmtTimeZone = "GMT+2";
 
-		WaterQualityObserved wqo = transformToWaterQualityObserved(alertFile);
-		
-		Location loc = wqo.getLocation();
-		double[] coordinates = loc.getCoordinates();
-		
-		System.out.println("Id: " + wqo.getId());
-		System.out.println("Latitude: " + coordinates[0]);
-		System.out.println("Longitude: " + coordinates[1]);
-		System.out.println("E.coli: " + wqo.getEcoli());
-		System.out.println("Temperature: " + wqo.getTemperature());
-		
-		
+		transformToWaterQualityObserved(alertFile, outputFolder, gmtTimeZone);
+
+
 		//Testing WeatherObserved
 
 	}
 
 
-	public static List<WaterObserved> transformToWaterObserved (String csvInput) throws IOException {
+	public static void transformToWaterObserved (String csvInput, String outputFolder) throws IOException {
 
-		//WaterObserved wo;
 		List<WaterObserved> waterObservedData = new LinkedList<WaterObserved>();
 
 		BufferedReader br = new BufferedReader(new FileReader(csvInput));
@@ -83,7 +58,7 @@ public class Transformer {
 
 		Location loc;	
 		String measurementType = null;
-		
+
 		double lat, lon, measurementValue;
 
 		while (line != null) {
@@ -92,12 +67,12 @@ public class Transformer {
 
 			lat = Double.parseDouble(params[3]);
 			lon = Double.parseDouble(params[4]);
-			
+
 			double[] coordinates = new double[2];
-			
+
 			coordinates[0] = lat;
 			coordinates[1] = lon;			
-			
+
 			loc = new Location.LocationBuilder()
 					.setType("Point")
 					.setCoordinates(coordinates)
@@ -112,7 +87,7 @@ public class Transformer {
 				WaterObserved wo = new WaterObserved.WaterObservedBuilder()
 						.setId(generateUUID())
 						.setType("WaterObserved")
-						.setSource("EDEN")				
+						.setSource("URL to EDEN")				
 						.setDateObserved(params[2])
 						.setLocation(loc)
 						.setFlow(measurementValue)
@@ -126,7 +101,7 @@ public class Transformer {
 				WaterObserved wo = new WaterObserved.WaterObservedBuilder()
 						.setId(generateUUID())
 						.setType("WaterObserved")
-						.setSource("EDEN")				
+						.setSource("URL to EDEN")				
 						.setDateObserved(params[2])
 						.setLocation(loc)
 						.setHeight(measurementValue)
@@ -141,7 +116,7 @@ public class Transformer {
 				WaterObserved wo = new WaterObserved.WaterObservedBuilder()
 						.setId(generateUUID())
 						.setType("WaterObserved")
-						.setSource("EDEN")				
+						.setSource("URL to EDEN")				
 						.setDateObserved(params[2])
 						.setLocation(loc)
 						.setDischargeAmount(measurementValue)
@@ -155,8 +130,27 @@ public class Transformer {
 		}
 
 		br.close();
-		
-		return waterObservedData;
+
+		PrintWriter writer = null;
+		File outputFile = null;
+		String output = null;
+
+		//generate json output
+		for (WaterObserved wo : waterObservedData) {
+			String id = wo.getId();
+			outputFile = new File(outputFolder + "/" + id + ".json");
+			output = new GsonBuilder().create().toJson(wo);
+
+			writer = new PrintWriter(
+					new BufferedWriter(
+							new FileWriter(outputFile)), true);
+
+			writer.write(output);
+			writer.flush();
+			writer.close();
+
+		}
+
 
 	}
 
@@ -172,7 +166,7 @@ public class Transformer {
 
 	}
 
-	public static WaterQualityObserved transformToWaterQualityObserved (String jsonInput) {
+	public static void transformToWaterQualityObserved (String jsonInput, String outputFolder, String gmtTimeZone) throws IOException {
 
 		Gson gson = new Gson();
 
@@ -183,7 +177,7 @@ public class Transformer {
 			Alert alert = gson.fromJson(reader, Alert.class);
 
 			List<MeasurementResult> mr = alert.getMeasurement_result();
-			
+
 			double[] coordinates = new double[2];
 			coordinates[0] = alert.getLatitude();
 			coordinates[1] = alert.getLongitude();
@@ -195,13 +189,13 @@ public class Transformer {
 
 			for (MeasurementResult mres : mr) {
 
-			wqo = new WaterQualityObserved.WaterQualityObservedBuilder()
-					.setId(Integer.toString(alert.getSample_id()))
-					.setDateObserved(Integer.toString(alert.getDate()))
-					.setLocation(location)
-					.setTemperature(alert.getTemperature())
-					.setEcoli(mres.getResult())
-					.build();
+				wqo = new WaterQualityObserved.WaterQualityObservedBuilder()
+						.setId(Integer.toString(alert.getSample_id()))
+						.setDateObserved(UnixTimeStampToDateTime(alert.getDate(), gmtTimeZone))
+						.setLocation(location)
+						.setTemperature(alert.getTemperature())
+						.setEcoli(mres.getResult())
+						.build();
 			}
 
 
@@ -209,11 +203,26 @@ public class Transformer {
 			e.printStackTrace();
 		}
 
-		return wqo;
+		PrintWriter writer = null;
+		File outputFile = null;
+		String output = null;
+
+		//generate json output
+		String id = wqo.getId();
+		outputFile = new File(outputFolder + "/" + id + ".json");
+		output = new GsonBuilder().create().toJson(wqo);
+
+		writer = new PrintWriter(
+				new BufferedWriter(
+						new FileWriter(outputFile)), true);
+
+		writer.write(output);
+		writer.flush();
+		writer.close();
 
 
 	}
-	
+
 	//TODO: Just mocking this, get info on how to interpret these values from SIAAP
 	private static String getMeasurementType (String tagValue) {
 
@@ -230,12 +239,27 @@ public class Transformer {
 
 
 	}
-	
+
 	private static String generateUUID() {
-		
+
 		UUID id = UUID.randomUUID();
-		
+
 		return id.toString();
+	}
+	
+	public static String UnixTimeStampToDateTime(long unixSeconds, String gmtTimeZone) {
+	
+		// convert seconds to milliseconds
+		Date date = new java.util.Date(unixSeconds*1000L); 
+
+		SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"); 
+		
+		// set appropriate timezone
+		sdf.setTimeZone(java.util.TimeZone.getTimeZone(gmtTimeZone)); 
+		
+		String formattedDate = sdf.format(date);
+		
+		return formattedDate;
 	}
 
 
